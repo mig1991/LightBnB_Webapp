@@ -1,28 +1,26 @@
 const properties = require("./json/properties.json");
 const users = require("./json/users.json");
 
-const { Pool } = require('pg');
+const { Pool } = require("pg");
 
 const pool = new Pool({
-  user: 'development',       // Your username
-  host: 'localhost',         // Database server address
-  database: 'lightbnb',  // Database name
-  password: 'development',   // Your password
-  port: 5432,                // Port number (default: 5432)
+  user: "development", // Your username
+  host: "localhost", // Database server address
+  database: "lightbnb", // Database name
+  password: "development", // Your password
+  port: 5432, // Port number (default: 5432)
 });
 
 // Test the connection
 
-
-
 // Rest of your database.js file...
 
 // the following assumes that you named your connection variable `pool`
-pool.query('SELECT NOW()', (err, res) => {
+pool.query("SELECT NOW()", (err, res) => {
   if (err) {
-    console.error('Error connecting to the database', err.stack);
+    console.error("Error connecting to the database", err.stack);
   } else {
-    console.log('Connected to the database at', res.rows[0].now);
+    console.log("Connected to the database at", res.rows[0].now);
   }
 });
 /// Users
@@ -32,50 +30,50 @@ pool.query('SELECT NOW()', (err, res) => {
  * @param {String} email The email of the user.
  * @return {Promise<{}>} A promise to the user.
  */
-const getUserWithEmail = function(email) {
+const getUserWithEmail = function (email) {
   const query = `
     SELECT * FROM users
     WHERE email = $1;
   `;
-  return pool.query(query, [email.toLowerCase()])
-    .then(res => res.rows[0] || null)
-    .catch(err => console.error('query error', err.stack));
+  return pool
+    .query(query, [email.toLowerCase()])
+    .then((res) => res.rows[0] || null)
+    .catch((err) => console.error("query error", err.stack));
 };
-
 
 /**
  * Get a single user from the database given their id.
  * @param {string} id The id of the user.
  * @return {Promise<{}>} A promise to the user.
  */
-const getUserWithId = function(id) {
+const getUserWithId = function (id) {
   const query = `
     SELECT * FROM users
     WHERE id = $1;
   `;
-  return pool.query(query, [id])
-    .then(res => res.rows[0] || null)
-    .catch(err => console.error('query error', err.stack));
+  return pool
+    .query(query, [id])
+    .then((res) => res.rows[0] || null)
+    .catch((err) => console.error("query error", err.stack));
 };
-
 
 /**
  * Add a new user to the database.
  * @param {{name: string, password: string, email: string}} user
  * @return {Promise<{}>} A promise to the user.
  */
-const addUser = function(user) {
+const addUser = function (user) {
   const query = `
     INSERT INTO users (name, email, password)
     VALUES ($1, $2, $3)
     RETURNING *;
   `;
   const values = [user.name, user.email.toLowerCase(), user.password];
-  return pool.query(query, values)
-    .then(res => res.rows[0])
-    .catch(err => console.error('query error', err.stack));
+  return pool
+    .query(query, values)
+    .then((res) => res.rows[0])
+    .catch((err) => console.error("query error", err.stack));
 };
-
 
 /// Reservations
 
@@ -85,7 +83,21 @@ const addUser = function(user) {
  * @return {Promise<[{}]>} A promise to the reservations.
  */
 const getAllReservations = function (guest_id, limit = 10) {
-  return getAllProperties(null, 2);
+  const query = `
+    SELECT reservations.id, properties.title, properties.cost_per_night,
+        reservations.start_date, reservations.end_date, avg(property_reviews.rating) as average_rating
+    FROM reservations
+    JOIN properties ON reservations.property_id = properties.id
+    JOIN property_reviews ON properties.id = property_reviews.property_id
+    WHERE reservations.guest_id = $1
+    GROUP BY properties.id, reservations.id
+    ORDER BY reservations.start_date DESC
+    LIMIT $2;
+  `;
+  return pool
+    .query(query, [guest_id, limit])
+    .then((res) => res.rows)
+    .catch((err) => console.error("query error", err.stack));
 };
 
 /// Properties
